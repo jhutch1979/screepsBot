@@ -3,7 +3,7 @@ module.exports = function (Room) {
     
     Room.prototype.spawnCreep = function(creepType, desiredCount) {
         const spawnQueue = require('room.spawnQueue');
-    
+        priority = 5; // Default priority for spawning
         let typeTarget;
         if (desiredCount !== null && desiredCount !== undefined) {
             typeTarget = desiredCount;
