@@ -36,7 +36,10 @@ var roleBuilder = {
 
         // Working → build
         else {
-            const constructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+            const constructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES, {
+                filter: s => s.structureType !== STRUCTURE_WALL && s.structureType !== STRUCTURE_RAMPART
+            });
+            //const constructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
             if (constructionSites.length) {
                 const closeSite = creep.pos.findClosestByRange(constructionSites);
                 

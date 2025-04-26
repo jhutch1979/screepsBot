@@ -16,6 +16,7 @@ var roleUpgrader = {
 
         if(!creep.memory.working){
             creep.memory.currentAction = 'getEnergy';
+            //creep.say('getEnergy');
                 creep.harvestEnergy(); // Fallback to harvesting energy if no storage is available
             
         }else{
@@ -26,9 +27,11 @@ var roleUpgrader = {
             // }
             if(creep.pos && creep.pos.inRangeTo(controller, 3)){
                 creep.memory.currentAction = 'upgrade';
+                //creep.say('upgrade');
                 creep.upgradeController(controller);
             } else{
                 creep.memory.currentAction = 'move';
+                //creep.say('move');
                 creep.moveTo(controller, { visualizePathStyle: { stroke: pathColors.upgrader } });
             }
         }

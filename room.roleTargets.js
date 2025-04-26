@@ -30,11 +30,11 @@ module.exports = function (Room) {
 
             if (efficiency < 0.6) {
                 // Not using enough energy, add an upgrader
-                this.memory.census.upgrader = Math.min((this.memory.census.upgrader || 2) + 1, 10);
+                this.memory.census.upgrader = Math.min((this.memory.census.upgrader || 2) + 1, this.controller.level >= 4 ? 2 : 10);
                 Memory.lastUpgraderAdjust = Game.time;
             } else if (efficiency > 0.8) {
                 // Economy is tight, scale down
-                this.memory.census.upgrader = Math.max((this.memory.census.upgrader || 2) - 1, 1);
+                this.memory.census.upgrader = Math.max((this.memory.census.upgrader || 2) - 1, this.controller.level >= 4 ? 2 : 10);
                 Memory.lastUpgraderAdjust = Game.time;
             }
             // else keep the current number
@@ -56,7 +56,7 @@ module.exports = function (Room) {
                 : 0 // Ignore walls and ramparts
         );
 
-        console.log(`Total build work in ${this.name}: ${totalBuildWork}`);
+        //console.log(`Total build work in ${this.name}: ${totalBuildWork}`);
 
         if (totalBuildWork === 0) return 0;
 
@@ -69,7 +69,7 @@ module.exports = function (Room) {
         // If no WORK parts somehow (weird case), assume at least 1
         const buildPower = workParts > 0 ? workParts * 4 : 4; // 4 build points per WORK per tick
 
-        console.log(`Estimated builder buildPower: ${buildPower} per tick`);
+        //console.log(`Estimated builder buildPower: ${buildPower} per tick`);
 
         // Estimate number of ticks needed if you had only one builder
         const estimatedTicks = totalBuildWork / buildPower;
@@ -77,10 +77,20 @@ module.exports = function (Room) {
         // Scale builders: one builder for roughly every 1500 ticks of work
         var buildersNeeded = Math.ceil(estimatedTicks / 750);
         buildersNeeded = Math.min(buildersNeeded, 5); // At least one builder
-        console.log(`Estimated builders needed: ${buildersNeeded}`);
+        //console.log(`Estimated builders needed: ${buildersNeeded}`);
 
         return Math.min(buildersNeeded, 5); // Never spawn more than 4 builders
     }
+
+    Room.prototype.getDefenderTarget = function () {
+        const enemies = this.find(FIND_HOSTILE_CREEPS);
+    
+        if (enemies.length === 0) return 0; // No enemies, no defenders needed
+    
+        if (enemies.length <= 2) return 1; // Small raid, 1 defender
+        if (enemies.length <= 5) return 2; // Medium raid, 2 defenders
+        return 3; // Heavy attack, 3 defenders
+    };
 
     Room.prototype.needsRepairs = function () {
         const repairTarget = this.find(FIND_STRUCTURES, {

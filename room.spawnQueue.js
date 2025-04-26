@@ -13,7 +13,8 @@ const spawnQueue = {
         if (!room.memory.spawnQueue) {
             room.memory.spawnQueue = [];
         }
-        room.memory.spawnQueue.push({ role, body, memory, priority });
+        time = Game.time;
+        room.memory.spawnQueue.push({ role, body, memory, priority, time });
         // Sort the queue based on priority (ascending order)
         room.memory.spawnQueue.sort((a, b) => a.priority - b.priority);
     },
@@ -24,7 +25,9 @@ const spawnQueue = {
      */
     process: function(room) {
         if (!room.memory.spawnQueue || room.memory.spawnQueue.length === 0) return;
-        
+        if (Game.time % 50 === 0) {
+            this.cleanSpawnQueue(room);
+        }
         const spawns = room.find(FIND_MY_SPAWNS, {
             filter: spawn => !spawn.spawning
         });
@@ -42,7 +45,7 @@ const spawnQueue = {
                 memory: nextCreep.memory,
                 dryRun: true
             });
-            console.log(`Spawn ${spawn.name} dryRun result for ${name}: ${canSpawn}: ${body}`);
+            //console.log(`Spawn ${spawn.name} dryRun result for ${name}: ${canSpawn}: ${body}`);
             if (canSpawn === OK) {
                 // Spawn the creep
                 const result = spawn.spawnCreep(nextCreep.body, name, {
@@ -54,6 +57,29 @@ const spawnQueue = {
                     room.memory.spawnQueue.shift();
                 }
             }
+        }
+    },
+    cleanSpawnQueue: function(room) {
+        if (!room.memory.spawnQueue) return;
+
+        const now = Game.time;
+        const oldLength = room.memory.spawnQueue.length;
+    
+        room.memory.spawnQueue = room.memory.spawnQueue.filter(task => {
+            if (!task.time) {
+                console.log(`[SpawnQueue] Removed task with missing time in room ${room.name}.`);
+                return false;
+            }
+            if (now - task.time > 300) {
+                console.log(`[SpawnQueue] Removed old task (age: ${now - task.time} ticks) in room ${room.name}.`);
+                return false;
+            }
+            return true; // Keep good tasks
+        });
+    
+        const newLength = room.memory.spawnQueue.length;
+        if (oldLength !== newLength) {
+            console.log(`[SpawnQueue] Cleaned ${oldLength - newLength} outdated tasks in room ${room.name}.`);
         }
     }
 };

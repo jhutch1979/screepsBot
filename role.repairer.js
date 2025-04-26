@@ -15,12 +15,13 @@ var roleRepairer = {
             if (!creep.memory.repairingTargetId) {
                 const repairTarget = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                     filter: (structure) => {
+                        // ✅ Only consider non-wall and non-rampart structures
+                        if (structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART) {
+                            return false; // Ignore walls and ramparts completely
+                        }
+                        
                         if (structure.hits < structure.hitsMax) {
                             if (structure.hits / structure.hitsMax < 0.9) {
-                                return true;
-                            }
-                            if ((structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART) &&
-                                structure.hits < 50000) {
                                 return true;
                             }
                         }

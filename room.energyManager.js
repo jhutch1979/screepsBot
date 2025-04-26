@@ -18,9 +18,9 @@ module.exports = {
 
         const controllerLevel = room.controller.level;
         const storageExists = room.storage !== undefined;
-        trackEnergyConsumption();
+        
         //console.log('Average energy usage:', global.energyUsageTracker.averageEnergyUsage);
-        logEconomyHealth(room.name);
+        
         if (controllerLevel >= 4 && storageExists) {
             // Advanced energy management: use miners and haulers
             this.setupEnergyInfrastructure(room);
@@ -33,6 +33,8 @@ module.exports = {
             // Basic energy management: use harvesters
             this.spawnHarvesters(room);
         }
+        trackEnergyConsumption();
+        logEconomyHealth(room.name);
     },
 
     setupEnergyInfrastructure: function (room) {
@@ -142,7 +144,7 @@ module.exports = {
 
     spawnHarvesters: function (room) {
         
-        result = room.spawnCreep('harvester', 2);
+        result = room.spawnCreep('harvester', room.controller.level <=3 ? 2 : 3 );
     },
     spawnSuppliers: function (room) {
         const suppliers = _.filter(Game.creeps, creep =>
@@ -255,7 +257,7 @@ function trackEnergyConsumption() {
     }
 
     if (Memory.energyUsageTracker) {
-        if (Memory.energyUsageTracker.length >= Memory.energyUsageTracker.windowSize) {
+        if (Memory.energyUsageTracker.history.length >= Memory.energyUsageTracker.windowSize) {
             Memory.energyUsageTracker.history.shift(); // Remove oldest
         }
         Memory.energyUsageTracker.history.push(energyUsedThisTick); // Add current tick usage

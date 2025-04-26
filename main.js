@@ -2,6 +2,7 @@ var roleHarvester = require('role.harvester');
 var roleUpgrader = require('role.upgrader');
 var roleBuilder = require('role.builder');
 var roleRepairer = require('role.repairer');
+var roleDefender = require('role.defender');
 //var roomFunctions = require('room.functions');
 var creepFunctions = require('creep.functions');
 const energyManager = require('room.energyManager');
@@ -19,14 +20,14 @@ require('room.tileUtils')(Room);
 //var roleTower = require('role.tower');
 
 module.exports.loop = function () {
-    
+
     if (Memory.lastRCL === undefined) {
         Memory.lastRCL = 1;
     }
 
 
-    for(var name in Memory.creeps){
-        if(!Game.creeps[name]){
+    for (var name in Memory.creeps) {
+        if (!Game.creeps[name]) {
             delete Memory.creeps[name];
             console.log('Clearing non-existant creep memory: ', name);
         }
@@ -41,20 +42,22 @@ module.exports.loop = function () {
         }
     }
 
-    _.forEach(Game.rooms, function(room, roomName) {
-        const currentLevel = room.controller.level;
+    _.forEach(Game.rooms, function (room, roomName) {
 
-    if (currentLevel > Memory.lastRCL) {
-        console.log(`<span style="color: cyan;">[RCL]</span> Reached RCL ${currentLevel} at Game.time ${Game.time}`);
-        Memory[`rcl${currentLevel}Time`] = Game.time;
-        Memory.lastRCL = currentLevel;
-    }
 
-        if(room && room.controller && room.controller.my){
+        if (room && room.controller && room.controller.my) {
+            console.log('Processing room:', roomName);
+            const currentLevel = room.controller.level;
+
+            if (currentLevel > Memory.lastRCL) {
+                console.log(`<span style="color: cyan;">[RCL]</span> Reached RCL ${currentLevel} at Game.time ${Game.time}`);
+                Memory[`rcl${currentLevel}Time`] = Game.time;
+                Memory.lastRCL = currentLevel;
+            }
 
             room.spawnCreeps();
             room.defend();
-            room.runBuildRoads(3,200);
+            room.runBuildRoads(3, 200);
             energyManager.run(room);
             require('room.spawnQueue').process(room);
         }
@@ -71,9 +74,10 @@ module.exports.loop = function () {
         hauler: roleHauler,
         supplier: roleSupplier,
         scout: roleScout,
-        droppedHauler: roleDroppedHauler
+        droppedHauler: roleDroppedHauler,
+        defender: roleDefender
     };
-    
+
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
         const role = creep.memory.role;
@@ -85,7 +89,7 @@ module.exports.loop = function () {
             const towers = creep.room.find(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
             });
-    
+
             if (creep.room.energyAvailable === creep.room.energyCapacityAvailable && towers.length === 0) {
                 if (sites.length > 0) {
                     // If there are construction sites, help build
@@ -100,6 +104,7 @@ module.exports.loop = function () {
                 roleHarvester.run(creep);
             }
         } else if (roleMap[role]) {
+            //console.log(`Running ${role} logic for creep: ${name}`);
             roleMap[role].run(creep);
         }
     }

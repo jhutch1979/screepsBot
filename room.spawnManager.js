@@ -1,9 +1,9 @@
 module.exports = function (Room) {
     
     
-    Room.prototype.spawnCreep = function(creepType, desiredCount) {
+    Room.prototype.spawnCreep = function(creepType, desiredCount, priority = 5) {
         const spawnQueue = require('room.spawnQueue');
-        priority = 5; // Default priority for spawning
+        //priority = 5; // Default priority for spawning
         let typeTarget;
         if (desiredCount !== null && desiredCount !== undefined) {
             typeTarget = desiredCount;
@@ -27,10 +27,15 @@ module.exports = function (Room) {
                 priority = 1; // Higher priority for the first harvester
             
                 body = this.buildBody([WORK, CARRY, MOVE], this.energyAvailable); // Emergency
-            } else if (creepType === 'harvester' ) {
-                priority=3; // Higher priority for the first harvester
-            }else {
+         
+            }else if (creepType === 'defender') {
+                body = this.getDefenderBody();
+            } else {
                 body = this.buildBody([WORK, CARRY, MOVE], this.energyCapacityAvailable);
+            }
+
+            if (creepType === 'harvester' && priority === 5  ) {
+                priority=3; // Higher priority for the first harvester
             }
 
             if (!body || body.length === 0) {
@@ -77,7 +82,7 @@ module.exports = function (Room) {
             let value = _.get(this.memory, ['census', 'upgrader']);
             upgraderTarget = (value !== undefined && value !== null) ? value : 2;
         }
-        result = this.spawnCreep('upgrader', upgraderTarget);
+        result = this.spawnCreep('upgrader', upgraderTarget, 4);
         if (result === OK) return;
     
         // Only try spawning builders if there’s something to build
@@ -89,7 +94,7 @@ module.exports = function (Room) {
                 let value = _.get(this.memory, ['census', 'builder']);
                 builderTarget = (value !== undefined && value !== null) ? value : 2;    
             }
-            result = this.spawnCreep('builder', builderTarget);
+            result = this.spawnCreep('builder', builderTarget, this.controller.level > 4 ? 4 : 5);
             if (result === OK) return;
         } else {
             this.spawnCreep('builder', 0); // Set builder count to 0 if no construction sit
@@ -100,6 +105,16 @@ module.exports = function (Room) {
         } else {
             this.spawnCreep('repairer', 0); // Set repairer count to 0 if no repairs needed
         }
+
+        let defenderTarget;
+        if (this.getUpgraderTarget) {
+            defenderTarget = this.getDefenderTarget();
+        } else {
+            defenderTarget = 0;
+        }
+        result = this.spawnCreep('defender', defenderTarget, -1);
+        if (result === OK) return;
+
        
         result = this.spawnScout();
         if (result === OK) return;
@@ -129,3 +144,22 @@ Room.prototype.buildBody = function(pattern, maxEnergy) {
         return body;
 
 }
+Room.prototype.getDefenderBody = function() {
+    switch (this.controller.level) {
+        case 1:
+            return [TOUGH, ATTACK, MOVE];
+
+        case 2:
+            return [TOUGH, TOUGH, ATTACK, ATTACK, MOVE, MOVE];
+        case 3:
+            return [TOUGH, TOUGH, ATTACK, ATTACK, MOVE, MOVE];
+        case 4:
+            return [TOUGH, TOUGH, ATTACK, ATTACK, ATTACK, MOVE, MOVE];
+        case 5:
+            return [TOUGH, TOUGH, ATTACK, ATTACK, ATTACK, MOVE, MOVE, MOVE];
+        default:
+            return [TOUGH, ATTACK, ATTACK, ATTACK, MOVE];
+    }
+}
+
+
