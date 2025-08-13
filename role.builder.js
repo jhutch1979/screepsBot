@@ -22,16 +22,7 @@ var roleBuilder = {
         // Not working → withdraw from storage
         if (!creep.memory.working) {
             creep.memory.currentAction = 'getEnergy';
-            const storage = creep.room.storage;
-            if (storage) {
-                if(storage.store[RESOURCE_ENERGY] >0 ){
-                    if (creep.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(storage, { visualizePathStyle: { stroke: '#ffaa00' } });
-                    }
-                }
-            } else {
-                creep.harvestEnergy(); // Fallback to harvesting energy if no storage is available
-            }
+            creep.harvestEnergy();
         }
 
         // Working → build

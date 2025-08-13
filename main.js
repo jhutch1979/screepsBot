@@ -3,6 +3,7 @@ var roleUpgrader = require('role.upgrader');
 var roleBuilder = require('role.builder');
 var roleRepairer = require('role.repairer');
 var roleDefender = require('role.defender');
+var roleWaller = require('role.waller');
 //var roomFunctions = require('room.functions');
 var creepFunctions = require('creep.functions');
 const energyManager = require('room.energyManager');
@@ -75,7 +76,8 @@ module.exports.loop = function () {
         supplier: roleSupplier,
         scout: roleScout,
         droppedHauler: roleDroppedHauler,
-        defender: roleDefender
+        defender: roleDefender,
+        waller: roleWaller
     };
 
     for (const name in Game.creeps) {

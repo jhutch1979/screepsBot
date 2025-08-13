@@ -178,6 +178,7 @@ module.exports = {
             if (totalDropped >= 500) desiredDroppedHaulers = 1;
             if (totalDropped >= 1500) desiredDroppedHaulers = 2;
             if (totalDropped >= 3000) desiredDroppedHaulers = 3;
+            if (totalDropped >= 5000) desiredDroppedHaulers = 4;
 
             if (droppedHaulers.length < desiredDroppedHaulers) {
                 const body = [CARRY, CARRY, MOVE];

@@ -44,7 +44,7 @@ module.exports = function (Room) {
                     pos.y - 1, pos.x - 1, pos.y + 1, pos.x + 1,
                     true
                 );
-                
+
                 if (nearbySources.length > 0) {
                     // This tile is next to a source! Do not build here.
                     continue;
@@ -93,6 +93,8 @@ module.exports = function (Room) {
 
     Room.prototype.runBuildRoads = function (radius = 2, interval = 2) {
         if (!this.memory.lastRoadBuildTick || Game.time - this.memory.lastRoadBuildTick >= interval) {
+            console.log('Building Defensive structurers in ' + this.name);
+            this.buildDefenseRamparts();
             console.log(`Building roads in ${this.name}...`);
             const allowedExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][this.controller.level];
             // How many towers allowed at this RCL
@@ -280,5 +282,70 @@ module.exports = function (Room) {
 
         return candidates[0].pos; // Best spot
     };
+
+    Room.prototype.buildDefenseRamparts = function () {
+        if (!this.controller || this.controller.level < 4) return;
+
+        const importantStructures = this.find(FIND_MY_STRUCTURES, {
+            filter: (structure) =>
+                structure.structureType === STRUCTURE_SPAWN ||
+                structure.structureType === STRUCTURE_TOWER
+        });
+
+        for (const structure of importantStructures) {
+            const center = structure.pos;
+
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const x = center.x + dx;
+                    const y = center.y + dy;
+
+                    if (x < 0 || x > 49 || y < 0 || y > 49) continue; // Stay inside room bounds
+
+                    const pos = new RoomPosition(x, y, this.name);
+
+                    const hasRampart = pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_RAMPART);
+                    const hasRampartSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType === STRUCTURE_RAMPART);
+                    const hasWall = pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_WALL);
+
+                    if (!hasRampart && !hasRampartSite && !hasWall) {
+                        const result = this.createConstructionSite(pos, STRUCTURE_RAMPART);
+                        if (result === OK) {
+                            console.log(`Placed rampart at (${x},${y}) near ${structure.structureType}`);
+                        }
+                    }
+                }
+            }
+        }
+        const containersBuilt = this.find(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER
+        });
+        const constructionSiteContainers = this.find(FIND_MY_CONSTRUCTION_SITES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER
+        });
+        const containers = containersBuilt.concat(constructionSiteContainers);
+        if (containers && containers.length > 0) {
+            for (const container of containers) {
+
+
+
+                const pos = container.pos;
+
+                const hasRampart = pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_RAMPART);
+                const hasRampartSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType === STRUCTURE_RAMPART);
+                const hasWall = pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_WALL);
+
+                if (!hasRampart && !hasRampartSite && !hasWall) {
+                    const result = this.createConstructionSite(pos, STRUCTURE_RAMPART);
+                    if (result === OK) {
+                        console.log(`Placed rampart at (${pos.x},${pos.y}) near ${container.structureType}`);
+                    }
+                }
+            }
+        }
+    }
+
+    
+    
 
 }

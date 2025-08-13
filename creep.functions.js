@@ -55,13 +55,40 @@ Creep.prototype.findEnergySource = function() {
 
 Creep.prototype.harvestEnergy = function() {
     const storage = this.room.storage;
-    if (storage ) {
-        // Prefer withdrawing from storage
-        if (this.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            this.moveTo(storage, {
-                reusePath: 2,
-                visualizePathStyle: { stroke: pathColors.retrieve } // White for energy retrieval
-            });
+    if (storage) {
+        const storedEnergy = storage.store.getUsedCapacity(RESOURCE_ENERGY);
+
+        if (storedEnergy > 0) {
+            // Storage has energy — withdraw it
+            if (this.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(storage, {
+                    reusePath: 2,
+                    visualizePathStyle: { stroke: pathColors.retrieve }
+                });
+            }
+        } else {
+            // Storage empty — move away from storage
+            if (this.pos.inRangeTo(storage, 1)) {
+                // Find an empty spot nearby
+                const emptySpots = this.pos.findInRange(FIND_STRUCTURES, 2, {
+                    filter: s => {
+                        const terrain = Game.map.getRoomTerrain(this.room.name).get(s.pos.x, s.pos.y);
+                        return terrain !== TERRAIN_MASK_WALL && s.structureType !== STRUCTURE_STORAGE;
+                    }
+                });
+
+                if (emptySpots.length > 0) {
+                    this.moveTo(emptySpots[0], {
+                        visualizePathStyle: { stroke: '#ff00ff' }
+                    });
+                    this.say('Backing off');
+                } else {
+                    // No good empty spots, just move randomly
+                    const dirs = [TOP, RIGHT, BOTTOM, LEFT, TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT];
+                    this.move(dirs[Math.floor(Math.random() * dirs.length)]);
+                    this.say('Move away');
+                }
+            }
         }
         return;
     }
@@ -152,6 +179,38 @@ Creep.prototype.giveWayIfEmpty = function() {
         }
     }
 }
+Creep.prototype.retreatToRampart = function() {
+    // If already on a friendly rampart, no need to move
+    const onRampart = this.room.lookForAt(LOOK_STRUCTURES, this.pos)
+        .some(s => s.structureType === STRUCTURE_RAMPART && s.my);
+    if (onRampart) return; // already on rampart
+
+    // Find all friendly ramparts in the room
+    const ramparts = this.room.find(FIND_MY_STRUCTURES, {
+        filter: s => s.structureType === STRUCTURE_RAMPART
+    });
+    // Filter ramparts that have no creep standing on them
+    const freeRamparts = ramparts.filter(r => this.room.lookForAt(LOOK_CREEPS, r.pos).length === 0);
+
+    if (freeRamparts.length) {
+        // Move toward the closest free rampart
+        const target = this.pos.findClosestByPath(freeRamparts);
+        if (target) {
+            this.moveTo(target, {
+                visualizePathStyle: { stroke: '#00ff00' }  // Green for retreat path
+            });
+        }
+    } else {
+        // No free ramparts available, fallback to moving toward spawn
+        const spawn = this.pos.findClosestByPath(FIND_MY_SPAWNS);
+        if (spawn) {
+            this.moveTo(spawn, {
+                visualizePathStyle: { stroke: '#00ff00' }  // Green for retreat path
+            });
+        }
+    }
+};
+
 
 
 

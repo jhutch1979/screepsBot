@@ -57,8 +57,9 @@ var roleSupplier = {
             });
 
             if (extensions.length > 0) {
-                if (creep.transfer(extensions[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(extensions[0], { visualizePathStyle: { stroke: '#8f8' } });
+                const ext = creep.pos.findClosestByPath(extensions); // Find the closest extension
+                if (creep.transfer(ext, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(ext, { visualizePathStyle: { stroke: '#8f8' } });
                 }
                 return;
             }

@@ -1,45 +1,55 @@
-module.exports = {
+const roleDroppedHauler = {
     run: function(creep) {
-        // Early check — see if dropped energy justifies existing
-        const totalDropped = _.sum(
-            creep.room.find(FIND_DROPPED_RESOURCES, {
-                filter: r => r.resourceType === RESOURCE_ENERGY
-            }),
-            r => r.amount
-        );
-
-        if (totalDropped < 500 && creep.store.getUsedCapacity() === 0) {
-            creep.say('💀 suicide');
-            creep.suicide();
-            return;
-        }
-
+        // If creep is full, go deliver to storage first
         if (creep.store.getFreeCapacity() === 0) {
-            // Full — deliver to storage
             const storage = creep.room.storage;
             if (storage) {
                 if (creep.transfer(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(storage, { visualizePathStyle: { stroke: '#ffffff' } });
+                    creep.moveTo(storage, { visualizePathStyle: { stroke: '#00ffff' } });
                 }
             }
-            return;
+            return; // Stop doing anything else if we're delivering
         }
 
-        // Look for dropped energy
-        const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-            filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 50
-        });
+        // Check if assigned dropped target is still valid
+        if (creep.memory.droppedId) {
+            const target = Game.getObjectById(creep.memory.droppedId);
+            if (!target || target.amount < creep.store.getFreeCapacity(RESOURCE_ENERGY)) {
+                // Target gone — clear memory
+                delete creep.memory.droppedId;
+            }
+        }
 
+        // If we don't have a target, pick the biggest dropped energy
+        if (!creep.memory.droppedId) {
+            const biggest = _(creep.room.find(FIND_DROPPED_RESOURCES, {
+                filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 50
+            }))
+            .sortBy('amount')
+            .reverse()
+            .head();
+
+            if (biggest) {
+                creep.memory.droppedId = biggest.id;
+            }
+        }
+
+        // Now act on the assigned dropped energy
+        const dropped = Game.getObjectById(creep.memory.droppedId);
         if (dropped) {
             if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(dropped, { visualizePathStyle: { stroke: '#ffffff' } });
             }
-        } else {
-            // No dropped energy found — park near storage
-            const storage = creep.room.storage;
-            if (storage) {
-                creep.moveTo(storage, { visualizePathStyle: { stroke: '#555555' } });
-            }
+            return;
         }
+
+        // No dropped energy target (or no energy left) — return to storage
+        
+            creep.say('💀 suicide');
+            creep.suicide();
+            return;
+        
     }
 };
+
+module.exports = roleDroppedHauler;
