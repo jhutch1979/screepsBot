@@ -52,26 +52,19 @@ module.exports = function (Room) {
     }
     
     
-    Room.prototype.spawnScout = function(count = 1) { 
+    Room.prototype.spawnScout = function(count = 1) {
+        const spawnQueue = require('room.spawnQueue');
         const scoutCount = _.filter(Game.creeps, creep => creep.memory.role === 'scout').length;
-    
-        if (scoutCount < count) {
-            const spawn = this.find(FIND_MY_SPAWNS)[0];
-            const name = 'Scout' + Game.time.toString().slice(-4);
-            const result = spawn.spawnCreep([MOVE], name, {
-                memory: {
-                    role: 'scout'
-                }
-            });
-    
-            if (result === OK) {
-                console.log(`Spawning global scout: ${name}`);
-            }
-    
-            return result;
+        const queuedScouts = (this.memory.spawnQueue || []).filter(q => q.role === 'scout').length;
+
+        if ((scoutCount + queuedScouts) < count) {
+            spawnQueue.add(this, 'scout', [MOVE], { role: 'scout' }, 10);
+            console.log('Queued global scout');
+            return OK;
         }
-    
-        return ERR_BUSY;};
+
+        return ERR_BUSY;
+    };
     Room.prototype.spawnCreeps = function() {
         // let result = this.spawnCreep('harvester');
         // if (result === OK) return;
@@ -119,7 +112,7 @@ module.exports = function (Room) {
         result = this.spawnScout();
         if (result === OK) return;
 
-        result = this.spawnCreep('waller',1, 3);
+        reuslt = this.spawnCreep('waller',1, 3);
         if (result === OK) return;
     };
 };

@@ -13,7 +13,7 @@ const spawnQueue = {
         if (!room.memory.spawnQueue) {
             room.memory.spawnQueue = [];
         }
-        time = Game.time;
+        const time = Game.time;
         room.memory.spawnQueue.push({ role, body, memory, priority, time });
         // Sort the queue based on priority (ascending order)
         room.memory.spawnQueue.sort((a, b) => a.priority - b.priority);
@@ -53,6 +53,18 @@ const spawnQueue = {
                 });
 
                 if (result === OK) {
+                    // Preserve miner/hauler assignment tracking now that these roles
+                    // also spawn through the queue.
+                    if (nextCreep.memory.sourceId) {
+                        if (!room.memory.minerAssignments) room.memory.minerAssignments = {};
+                        room.memory.minerAssignments[nextCreep.memory.sourceId] = name;
+                    }
+
+                    if (nextCreep.memory.containerId) {
+                        if (!room.memory.haulerAssignments) room.memory.haulerAssignments = {};
+                        room.memory.haulerAssignments[nextCreep.memory.containerId] = name;
+                    }
+
                     // Remove the spawned creep from the queue
                     room.memory.spawnQueue.shift();
                 }

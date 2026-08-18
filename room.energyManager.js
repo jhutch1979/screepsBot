@@ -86,17 +86,13 @@ module.exports = {
 
             const travelTime = Memory.rooms[room.name].sources[source.id].travelTime;
 
+            const queuedMiner = (room.memory.spawnQueue || []).some(q =>
+                q.role === 'miner' && q.memory && q.memory.sourceId === source.id
+            );
+            if (queuedMiner) continue;
+
             const body = [WORK, WORK, WORK, WORK, WORK, MOVE];
-            const spawn = room.find(FIND_MY_SPAWNS)[0];
-            const minerName = `miner_${source.id}_${Game.time.toString().slice(-4)}`;
-
-            const result = spawn.spawnCreep(body, minerName, {
-                memory: { role: 'miner', sourceId: source.id }
-            });
-
-            if (result === OK) {
-                room.memory.minerAssignments[source.id] = minerName;
-            }
+            spawnQueue.add(room, 'miner', body, { role: 'miner', sourceId: source.id }, 2);
         }
     },
 
@@ -129,16 +125,12 @@ module.exports = {
             for (let i = 0; i < carryParts; i++) body.push(CARRY);
             for (let i = 0; i < Math.ceil(carryParts / 2); i++) body.push(MOVE);
 
-            const spawn = room.find(FIND_MY_SPAWNS)[0];
-            const name = `hauler_${container.id}_${Game.time.toString().slice(-4)}`;
+            const queuedHauler = (room.memory.spawnQueue || []).some(q =>
+                q.role === 'hauler' && q.memory && q.memory.containerId === container.id
+            );
+            if (queuedHauler) continue;
 
-            const result = spawn.spawnCreep(body, name, {
-                memory: { role: 'hauler', containerId: container.id }
-            });
-
-            if (result === OK) {
-                room.memory.haulerAssignments[container.id] = name;
-            }
+            spawnQueue.add(room, 'hauler', body, { role: 'hauler', containerId: container.id }, 2);
         }
     },
 
@@ -153,13 +145,13 @@ module.exports = {
 
         const desiredSuppliers = 2; // Adjust as needed
 
-        if (suppliers.length < desiredSuppliers) {
+        const queuedSuppliers = (room.memory.spawnQueue || []).filter(q =>
+            q.role === 'supplier' && q.memory && q.memory.room === room.name
+        ).length;
+
+        if ((suppliers.length + queuedSuppliers) < desiredSuppliers) {
             const body = [CARRY, CARRY, MOVE]; // Adjust body composition as needed
-            const spawn = room.find(FIND_MY_SPAWNS)[0];
-            const supplierName = `supplier_${Game.time.toString().slice(-4)}`;
-            spawn.spawnCreep(body, supplierName, {
-                memory: { role: 'supplier', room: room.name }
-            });
+            spawnQueue.add(room, 'supplier', body, { role: 'supplier', room: room.name }, 2);
         }
     },
     spawnDroppedHaulers: function (room) {
@@ -180,13 +172,13 @@ module.exports = {
             if (totalDropped >= 3000) desiredDroppedHaulers = 3;
             if (totalDropped >= 5000) desiredDroppedHaulers = 4;
 
-            if (droppedHaulers.length < desiredDroppedHaulers) {
+            const queuedDroppedHaulers = (room.memory.spawnQueue || []).filter(q =>
+                q.role === 'droppedHauler' && q.memory && q.memory.room === room.name
+            ).length;
+
+            if ((droppedHaulers.length + queuedDroppedHaulers) < desiredDroppedHaulers) {
                 const body = [CARRY, CARRY, MOVE];
-                const spawn = room.find(FIND_MY_SPAWNS)[0];
-                const name = `dropHauler_${Game.time.toString().slice(-4)}`;
-                spawn.spawnCreep(body, name, {
-                    memory: { role: 'droppedHauler', room: room.name }
-                });
+                spawnQueue.add(room, 'droppedHauler', body, { role: 'droppedHauler', room: room.name }, 2);
             }
         }
     }
