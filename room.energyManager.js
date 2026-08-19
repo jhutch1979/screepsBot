@@ -74,7 +74,7 @@ module.exports = {
             const assignedCreep = Game.creeps[assignedName];
 
             // If there's a valid, alive assigned miner, skip
-            if (assignedCreep && assignedCreep.ticksToLive > 20) continue;
+            if (assignedCreep && (assignedCreep.ticksToLive > 20 || assignedCreep.spawning)) continue;
 
             // Estimate travel time if not stored
             if (!Memory.rooms[room.name]) Memory.rooms[room.name] = {};
@@ -114,7 +114,7 @@ module.exports = {
                 delete room.memory.haulerAssignments[container.id];
             }
             console.log('Assigned creep:', assignedCreep, 'ticksToLive:', assignedCreep ? assignedCreep.ticksToLive : 'N/A');
-            if (assignedCreep && assignedCreep.ticksToLive > 20) continue;
+            if (assignedCreep && (assignedCreep.ticksToLive > 20 || assignedCreep.spawning)) continue;
 
             // If assignment is missing or creep is nearly dead, make a new one
             const storage = room.storage || room.find(FIND_MY_SPAWNS)[0];
