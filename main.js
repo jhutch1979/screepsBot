@@ -42,33 +42,45 @@ module.exports.loop = function () {
 
 
         if (room && room.controller && room.controller.my) {
-            console.log('Processing room:', roomName);
-            const currentLevel = room.controller.level;
-            
-            for (const remoteRoomName in Memory.rooms[roomName].scoutedRooms) {
-                //console.log(remoteRoomName);
-                const mem = Memory.rooms[roomName].scoutedRooms[remoteRoomName];
-                if (mem.lastScouted && Game.time - mem.lastScouted > scoutExpiry) {
-                    console.log('marking room memory expired for: ', remoteRoomName);
-                    Memory.rooms[roomName].scoutedRooms[remoteRoomName].expiredScoutData = true;
-                }
-                else
-                {
-                    remoteManager.run(roomName, remoteRoomName);
-                }
-            }//
-
-            if (currentLevel > Memory.lastRCL) {
-                console.log(`<span style="color: cyan;">[RCL]</span> Reached RCL ${currentLevel} at Game.time ${Game.time}`);
-                Memory[`rcl${currentLevel}Time`] = Game.time;
-                Memory.lastRCL = currentLevel;
+            // Towers run in their own try/catch so a failure elsewhere in the room can't stop defense
+            try {
+                room.defend();
+            } catch (err) {
+                console.log(`[ERROR] Tower defense failed in ${roomName}: ${err.stack}`);
             }
 
-            room.spawnCreeps();
-            room.defend();
-            room.runBuildRoads(3, 20);
-            energyManager.run(room);
-            require('room.spawnQueue').process(room);
+            try {
+                console.log('Processing room:', roomName);
+                const currentLevel = room.controller.level;
+
+                // room.memory creates Memory.rooms[roomName] if it doesn't exist yet
+                const scoutedRooms = room.memory.scoutedRooms || {};
+                for (const remoteRoomName in scoutedRooms) {
+                    //console.log(remoteRoomName);
+                    const mem = scoutedRooms[remoteRoomName];
+                    if (mem.lastScouted && Game.time - mem.lastScouted > scoutExpiry) {
+                        console.log('marking room memory expired for: ', remoteRoomName);
+                        mem.expiredScoutData = true;
+                    }
+                    else
+                    {
+                        remoteManager.run(roomName, remoteRoomName);
+                    }
+                }//
+
+                if (currentLevel > Memory.lastRCL) {
+                    console.log(`<span style="color: cyan;">[RCL]</span> Reached RCL ${currentLevel} at Game.time ${Game.time}`);
+                    Memory[`rcl${currentLevel}Time`] = Game.time;
+                    Memory.lastRCL = currentLevel;
+                }
+
+                room.spawnCreeps();
+                room.runBuildRoads(3, 20);
+                energyManager.run(room);
+                require('room.spawnQueue').process(room);
+            } catch (err) {
+                console.log(`[ERROR] Room processing failed in ${roomName}: ${err.stack}`);
+            }
         }
     })
 
@@ -91,36 +103,40 @@ module.exports.loop = function () {
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
         const role = creep.memory.role;
-        //console.log(`Creep: ${name}, Role: ${role}`);
-        if (role === 'harvester') {
-            //console.log('Running harvester logic');
-            const sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+        try {
+            //console.log(`Creep: ${name}, Role: ${role}`);
+            if (role === 'harvester') {
+                //console.log('Running harvester logic');
+                const sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
-            const towers = creep.room.find(FIND_STRUCTURES, {
-                filter: s => s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            });
+                const towers = creep.room.find(FIND_STRUCTURES, {
+                    filter: s => s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+                });
 
-            if (creep.room.energyAvailable === creep.room.energyCapacityAvailable && towers.length === 0) {
-                if (sites.length > 0) {
-                    // If there are construction sites, help build
-                    roleBuilder.run(creep);
+                if (creep.room.energyAvailable === creep.room.energyCapacityAvailable && towers.length === 0) {
+                    if (sites.length > 0) {
+                        // If there are construction sites, help build
+                        roleBuilder.run(creep);
+                    } else {
+                        // No sites? Help upgrade controller
+                        roleUpgrader.run(creep);
+                    }
                 } else {
-                    // No sites? Help upgrade controller
-                    roleUpgrader.run(creep);
+                    // Otherwise harvest normally
+                    //console.log('Harvesting normally');
+                    roleHarvester.run(creep);
                 }
-            } else {
-                // Otherwise harvest normally
-                //console.log('Harvesting normally');
-                roleHarvester.run(creep);
+            } else if (roleMap[role]) {
+                //console.log(`Running ${role} logic for creep: ${name}`);
+                if(role === 'scout')
+                {
+                    roleMap[role].run(creep);
+                }else{
+                    roleMap[role].run(creep);
+                }
             }
-        } else if (roleMap[role]) {
-            //console.log(`Running ${role} logic for creep: ${name}`);
-            if(role === 'scout')
-            {
-                roleMap[role].run(creep);
-            }else{
-            roleMap[role].run(creep);
-            }
+        } catch (err) {
+            console.log(`[ERROR] Creep ${name} (${role}) failed: ${err.stack}`);
         }
     }
 
