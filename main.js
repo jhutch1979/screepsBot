@@ -17,6 +17,7 @@ require('room.defense')(Room);
 require('room.constructionManager')(Room);
 require('room.roleTargets')(Room);
 require('room.tileUtils')(Room);
+var remoteManager = require('remoteManager');
 
 //var roleTower = require('role.tower');
 
@@ -35,13 +36,7 @@ module.exports.loop = function () {
     }
     const scoutExpiry = 10000;
 
-    for (const roomName in Memory.rooms) {
-        const mem = Memory.rooms[roomName];
-        if (mem.lastScouted && Game.time - mem.lastScouted > scoutExpiry) {
-            console.log('Removing stale room memory:', roomName);
-            delete Memory.rooms[roomName];
-        }
-    }
+    
 
     _.forEach(Game.rooms, function (room, roomName) {
 
@@ -49,6 +44,19 @@ module.exports.loop = function () {
         if (room && room.controller && room.controller.my) {
             console.log('Processing room:', roomName);
             const currentLevel = room.controller.level;
+            
+            for (const remoteRoomName in Memory.rooms[roomName].scoutedRooms) {
+                //console.log(remoteRoomName);
+                const mem = Memory.rooms[roomName].scoutedRooms[remoteRoomName];
+                if (mem.lastScouted && Game.time - mem.lastScouted > scoutExpiry) {
+                    console.log('marking room memory expired for: ', remoteRoomName);
+                    Memory.rooms[roomName].scoutedRooms[remoteRoomName].expiredScoutData = true;
+                }
+                else
+                {
+                    remoteManager.run(roomName, remoteRoomName);
+                }
+            }//
 
             if (currentLevel > Memory.lastRCL) {
                 console.log(`<span style="color: cyan;">[RCL]</span> Reached RCL ${currentLevel} at Game.time ${Game.time}`);
@@ -58,7 +66,7 @@ module.exports.loop = function () {
 
             room.spawnCreeps();
             room.defend();
-            room.runBuildRoads(3, 200);
+            room.runBuildRoads(3, 20);
             energyManager.run(room);
             require('room.spawnQueue').process(room);
         }
@@ -107,7 +115,12 @@ module.exports.loop = function () {
             }
         } else if (roleMap[role]) {
             //console.log(`Running ${role} logic for creep: ${name}`);
+            if(role === 'scout')
+            {
+                roleMap[role].run(creep);
+            }else{
             roleMap[role].run(creep);
+            }
         }
     }
 

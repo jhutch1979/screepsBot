@@ -56,9 +56,10 @@ module.exports = function (Room) {
         const spawnQueue = require('room.spawnQueue');
         const scoutCount = _.filter(Game.creeps, creep => creep.memory.role === 'scout').length;
         const queuedScouts = (this.memory.spawnQueue || []).filter(q => q.role === 'scout').length;
-
+        
         if ((scoutCount + queuedScouts) < count) {
-            spawnQueue.add(this, 'scout', [MOVE], { role: 'scout' }, 10);
+            console.log("Scout added to que for room ", this.name);
+            spawnQueue.add(this, 'scout', [MOVE], { role: 'scout' , home: this.name }, 10);
             console.log('Queued global scout');
             return OK;
         }
@@ -75,7 +76,7 @@ module.exports = function (Room) {
             let value = _.get(this.memory, ['census', 'upgrader']);
             upgraderTarget = (value !== undefined && value !== null) ? value : 2;
         }
-        result = this.spawnCreep('upgrader', upgraderTarget, 4);
+        let result = this.spawnCreep('upgrader', upgraderTarget, 4);
         if (result === OK) return;
     
         // Only try spawning builders if there’s something to build
@@ -87,13 +88,13 @@ module.exports = function (Room) {
                 let value = _.get(this.memory, ['census', 'builder']);
                 builderTarget = (value !== undefined && value !== null) ? value : 2;    
             }
-            result = this.spawnCreep('builder', builderTarget, this.controller.level > 4 ? 4 : 5);
+            let result = this.spawnCreep('builder', builderTarget, this.controller.level > 4 ? 4 : 5);
             if (result === OK) return;
         } else {
             this.spawnCreep('builder', 0); // Set builder count to 0 if no construction sit
         }
         if (this.needsRepairs()) {
-            result = this.spawnCreep('repairer');
+            let result = this.spawnCreep('repairer');
             if (result === OK) return;
         } else {
             this.spawnCreep('repairer', 0); // Set repairer count to 0 if no repairs needed

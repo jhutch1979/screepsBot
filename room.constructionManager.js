@@ -16,6 +16,7 @@ module.exports = function (Room) {
 
         const allowedExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][this.controller.level];
         const allowedStorage = CONTROLLER_STRUCTURES[STRUCTURE_STORAGE][this.controller.level] > 0;
+        
 
         const existingExtensions = this.find(FIND_MY_STRUCTURES, {
             filter: s => s.structureType === STRUCTURE_EXTENSION
@@ -29,6 +30,7 @@ module.exports = function (Room) {
         }).length > 0;
 
         let neededExtensions = allowedExtensions - (existingExtensions + extensionSites);
+        
         if (neededExtensions <= 0 && hasStorage) return;
 
         let placedExtensions = 0;
@@ -57,7 +59,7 @@ module.exports = function (Room) {
                 if (!this.isBuildableTile(pos)) continue;
                 //console.log(`Building honeycomb grid at ${pos.x},${pos.y}`);
                 if (isEven) {
-
+                    
                     if (!storagePlaced && allowedStorage) {
                         const result = this.createConstructionSite(pos, STRUCTURE_STORAGE);
                         if (result === OK) {
@@ -73,6 +75,7 @@ module.exports = function (Room) {
                         }
 
                     } else if (neededExtensions > 0) {
+                        
                         const result = this.createConstructionSite(pos, STRUCTURE_EXTENSION);
                         if (result === OK) {
                             placedExtensions++;
@@ -110,7 +113,7 @@ module.exports = function (Room) {
             // Now estimate radius needed
             const estimatedRadius = Math.ceil(Math.sqrt(totalStructures / 2)) + 1;
             //console.log(`Estimated radius for honeycomb grid: ${estimatedRadius}`);
-            this.buildHoneycombGrid(estimatedRadius);
+            this.buildHoneycombGrid(estimatedRadius+2);
             //this.expandHoneycombGrid();
             this.buildRoadToStructure(this.controller);
             const allStorages = this.find(FIND_STRUCTURES, {

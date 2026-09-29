@@ -113,7 +113,7 @@ module.exports = {
                 // Assigned creep no longer exists — clean up assignment
                 delete room.memory.haulerAssignments[container.id];
             }
-            console.log('Assigned creep:', assignedCreep, 'ticksToLive:', assignedCreep ? assignedCreep.ticksToLive : 'N/A');
+            //console.log('Assigned creep:', assignedCreep, 'ticksToLive:', assignedCreep ? assignedCreep.ticksToLive : 'N/A');
             if (assignedCreep && (assignedCreep.ticksToLive > 20 || assignedCreep.spawning)) continue;
 
             // If assignment is missing or creep is nearly dead, make a new one
@@ -150,8 +150,9 @@ module.exports = {
         ).length;
 
         if ((suppliers.length + queuedSuppliers) < desiredSuppliers) {
+            var bodyParts = room.buildBody([CARRY, CARRY, MOVE], room.energyAvailable);
             const body = [CARRY, CARRY, MOVE]; // Adjust body composition as needed
-            spawnQueue.add(room, 'supplier', body, { role: 'supplier', room: room.name }, 2);
+            spawnQueue.add(room, 'supplier', bodyParts, { role: 'supplier', room: room.name }, 2);
         }
     },
     spawnDroppedHaulers: function (room) {

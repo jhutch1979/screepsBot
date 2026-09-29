@@ -34,7 +34,7 @@ module.exports = function (Room) {
                 Memory.lastUpgraderAdjust = Game.time;
             } else if (efficiency > 0.8) {
                 // Economy is tight, scale down
-                this.memory.census.upgrader = Math.max((this.memory.census.upgrader || 2) - 1, this.controller.level >= 4 ? 2 : 10);
+                this.memory.census.upgrader = Math.max((this.memory.census.upgrader || 2) - 1, 1);
                 Memory.lastUpgraderAdjust = Game.time;
             }
             // else keep the current number
