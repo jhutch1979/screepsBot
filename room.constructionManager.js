@@ -39,6 +39,8 @@ module.exports = function (Room) {
         for (let dx = -radius; dx <= radius; dx++) {
             for (let dy = -radius; dy <= radius; dy++) {
                 if (dx === 0 && dy === 0) continue; // Skip spawn center
+                // Skip edge/out-of-room tiles before constructing the RoomPosition (it throws outside 0-49)
+                if (x + dx < 1 || x + dx > 48 || y + dy < 1 || y + dy > 48) continue;
 
                 const pos = new RoomPosition(x + dx, y + dy, this.name);
                 const nearbySources = this.lookForAtArea(
@@ -96,6 +98,8 @@ module.exports = function (Room) {
 
     Room.prototype.runBuildRoads = function (radius = 2, interval = 2) {
         if (!this.memory.lastRoadBuildTick || Game.time - this.memory.lastRoadBuildTick >= interval) {
+            // Record the run up front so a planner error waits for the next interval instead of retrying every tick
+            this.memory.lastRoadBuildTick = Game.time;
             console.log('Building Defensive structurers in ' + this.name);
             this.buildDefenseRamparts();
             console.log(`Building roads in ${this.name}...`);
@@ -142,8 +146,6 @@ module.exports = function (Room) {
                     this.buildRoadBetween(tower, this.storage);
                 }
             }
-
-            this.memory.lastRoadBuildTick = Game.time;
         }
         if (Game.time % 1000 === 0) {
             this.cleanDeadRoadPaths();
@@ -257,8 +259,12 @@ module.exports = function (Room) {
         for (let dx = -radius; dx <= radius; dx++) {
             for (let dy = -radius; dy <= radius; dy++) {
                 if (dx === 0 && dy === 0) continue; // Skip spawn center
+                const px = spawn.pos.x + dx;
+                const py = spawn.pos.y + dy;
+                // Skip edge/out-of-room tiles before constructing the RoomPosition (it throws outside 0-49)
+                if (px < 1 || px > 48 || py < 1 || py > 48) continue;
 
-                const pos = new RoomPosition(spawn.pos.x + dx, spawn.pos.y + dy, this.name);
+                const pos = new RoomPosition(px, py, this.name);
                 const dist = Math.abs(dx) + Math.abs(dy);
                 if (dist > radius) continue;
 
