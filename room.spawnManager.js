@@ -113,7 +113,7 @@ module.exports = function (Room) {
         result = this.spawnScout();
         if (result === OK) return;
 
-        reuslt = this.spawnCreep('waller',1, 3);
+        result = this.spawnCreep('waller',1, 3);
         if (result === OK) return;
     };
 };
