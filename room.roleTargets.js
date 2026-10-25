@@ -3,8 +3,8 @@ module.exports = function (Room) {
         if (!this.memory.census) {
             this.memory.census = { upgrader: 2 };
         }
-        if (!Memory.lastUpgraderAdjust) {
-            Memory.lastUpgraderAdjust = Game.time;
+        if (!this.memory.lastUpgraderAdjust) {
+            this.memory.lastUpgraderAdjust = Game.time;
         }
         if (!this.controller || !this.controller.my) return 0;
 
@@ -19,11 +19,11 @@ module.exports = function (Room) {
 
         // EARLY GAME (Pre-storage logic)
         if (!this.storage) {
-            const ticksSinceLastAdjust = Game.time - Memory.lastUpgraderAdjust;
+            const ticksSinceLastAdjust = Game.time - this.memory.lastUpgraderAdjust;
             if (ticksSinceLastAdjust < 200) {
                 return this.memory.census.upgrader || 2; // Too soon to adjust again
             }
-            const avgEnergyUsage = getAverageEnergyUsage(300);
+            const avgEnergyUsage = getAverageEnergyUsage(this, 300);
             const expectedProduction = this.find(FIND_SOURCES).length * 10; // Assume 10 energy/tick per source
 
             const efficiency = avgEnergyUsage / expectedProduction;
@@ -31,11 +31,11 @@ module.exports = function (Room) {
             if (efficiency < 0.6) {
                 // Not using enough energy, add an upgrader
                 this.memory.census.upgrader = Math.min((this.memory.census.upgrader || 2) + 1, this.controller.level >= 4 ? 2 : 10);
-                Memory.lastUpgraderAdjust = Game.time;
+                this.memory.lastUpgraderAdjust = Game.time;
             } else if (efficiency > 0.8) {
                 // Economy is tight, scale down
                 this.memory.census.upgrader = Math.max((this.memory.census.upgrader || 2) - 1, 1);
-                Memory.lastUpgraderAdjust = Game.time;
+                this.memory.lastUpgraderAdjust = Game.time;
             }
             // else keep the current number
             return this.memory.census.upgrader || 2;
@@ -110,11 +110,11 @@ module.exports = function (Room) {
         return repairTarget.length > 0;
     }
 }
-function getAverageEnergyUsage(windowSize = 100) {
-    if (!Memory.energyUsageTracker || Memory.energyUsageTracker.history.length === 0) return 0;
+function getAverageEnergyUsage(room, windowSize = 100) {
+    const tracker = room.memory.energyUsage;
+    if (!tracker || tracker.history.length === 0) return 0;
 
-    const history = Memory.energyUsageTracker.history;
-    const slice = history.slice(-windowSize); // Take only last N entries
+    const slice = tracker.history.slice(-windowSize); // Take only last N entries
 
     const total = slice.reduce((a, b) => a + b, 0);
 

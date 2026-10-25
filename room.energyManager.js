@@ -7,14 +7,18 @@ module.exports = {
         // Check if the room has a controller and a spawn
         if (!room.controller || room.find(FIND_MY_SPAWNS).length === 0) return;
 
-        if (!Memory.energyUsageTracker) {
-            console.log('Initializing energy usage tracker in memory.');
-            Memory.energyUsageTracker = {
+        // Energy usage is tracked per room so multi-room empires don't mix their numbers
+        if (!room.memory.energyUsage) {
+            console.log('Initializing energy usage tracker for room:', room.name);
+            room.memory.energyUsage = {
                 lastTick: Game.time,
                 history: [],  // array of last N ticks
                 windowSize: 1500, // how many ticks to keep
             };
         }
+        // Drop the old shared tracker left over from the single-room version
+        if (Memory.energyUsageTracker) delete Memory.energyUsageTracker;
+        if (Memory.lastUpgraderAdjust !== undefined) delete Memory.lastUpgraderAdjust;
 
         const controllerLevel = room.controller.level;
         const storageExists = room.storage !== undefined;
@@ -33,7 +37,7 @@ module.exports = {
             // Basic energy management: use harvesters
             this.spawnHarvesters(room);
         }
-        trackEnergyConsumption();
+        trackEnergyConsumption(room);
         logEconomyHealth(room.name);
     },
 
@@ -69,29 +73,32 @@ module.exports = {
             room.memory.minerAssignments = {};
         }
 
+        const body = [WORK, WORK, WORK, WORK, WORK, MOVE];
+
         for (const source of sources) {
+            // Estimate travel time if not stored
+            if (!room.memory.sources) room.memory.sources = {};
+            if (!room.memory.sources[source.id]) {
+                const path = room.findPath(room.find(FIND_MY_SPAWNS)[0].pos, source.pos);
+                room.memory.sources[source.id] = { travelTime: path.length };
+            }
+            const travelTime = room.memory.sources[source.id].travelTime;
+
+            // Queue the replacement early enough that it arrives as the old miner dies:
+            // spawn time (3 ticks per part) + walking to the source + a small buffer
+            const leadTime = body.length * CREEP_SPAWN_TIME + travelTime + 10;
+
             const assignedName = room.memory.minerAssignments[source.id];
             const assignedCreep = Game.creeps[assignedName];
 
-            // If there's a valid, alive assigned miner, skip
-            if (assignedCreep && (assignedCreep.ticksToLive > 20 || assignedCreep.spawning)) continue;
-
-            // Estimate travel time if not stored
-            if (!Memory.rooms[room.name]) Memory.rooms[room.name] = {};
-            if (!Memory.rooms[room.name].sources) Memory.rooms[room.name].sources = {};
-            if (!Memory.rooms[room.name].sources[source.id]) {
-                const path = room.findPath(room.find(FIND_MY_SPAWNS)[0].pos, source.pos);
-                Memory.rooms[room.name].sources[source.id] = { travelTime: path.length };
-            }
-
-            const travelTime = Memory.rooms[room.name].sources[source.id].travelTime;
+            // If there's a valid, alive assigned miner that isn't about to expire, skip
+            if (assignedCreep && (assignedCreep.spawning || assignedCreep.ticksToLive > leadTime)) continue;
 
             const queuedMiner = (room.memory.spawnQueue || []).some(q =>
                 q.role === 'miner' && q.memory && q.memory.sourceId === source.id
             );
             if (queuedMiner) continue;
 
-            const body = [WORK, WORK, WORK, WORK, WORK, MOVE];
             spawnQueue.add(room, 'miner', body, { role: 'miner', sourceId: source.id }, 2);
         }
     },
@@ -113,17 +120,24 @@ module.exports = {
                 // Assigned creep no longer exists — clean up assignment
                 delete room.memory.haulerAssignments[container.id];
             }
-            //console.log('Assigned creep:', assignedCreep, 'ticksToLive:', assignedCreep ? assignedCreep.ticksToLive : 'N/A');
-            if (assignedCreep && (assignedCreep.ticksToLive > 20 || assignedCreep.spawning)) continue;
 
-            // If assignment is missing or creep is nearly dead, make a new one
-            const storage = room.storage || room.find(FIND_MY_SPAWNS)[0];
-            const pathLength = room.findPath(container.pos, storage.pos).length;
+            // Path length is cached; findPath every tick for every container would be expensive
+            if (!room.memory.containerPaths) room.memory.containerPaths = {};
+            let pathLength = room.memory.containerPaths[container.id];
+            if (pathLength === undefined) {
+                const storage = room.storage || room.find(FIND_MY_SPAWNS)[0];
+                pathLength = room.findPath(container.pos, storage.pos).length;
+                room.memory.containerPaths[container.id] = pathLength;
+            }
 
             const carryParts = Math.ceil((10 * pathLength * 2) / 50);
             const body = [];
             for (let i = 0; i < carryParts; i++) body.push(CARRY);
             for (let i = 0; i < Math.ceil(carryParts / 2); i++) body.push(MOVE);
+
+            // Queue the replacement early: spawn time + trip from spawn to the container + a small buffer
+            const leadTime = body.length * CREEP_SPAWN_TIME + pathLength + 10;
+            if (assignedCreep && (assignedCreep.spawning || assignedCreep.ticksToLive > leadTime)) continue;
 
             const queuedHauler = (room.memory.spawnQueue || []).some(q =>
                 q.role === 'hauler' && q.memory && q.memory.containerId === container.id
@@ -136,7 +150,7 @@ module.exports = {
 
     spawnHarvesters: function (room) {
         
-        result = room.spawnCreep('harvester', room.controller.level <=3 ? 2 : 3 );
+        room.spawnCreep('harvester', room.controller.level <= 3 ? 2 : 3);
     },
     spawnSuppliers: function (room) {
         const suppliers = _.filter(Game.creeps, creep =>
@@ -150,8 +164,11 @@ module.exports = {
         ).length;
 
         if ((suppliers.length + queuedSuppliers) < desiredSuppliers) {
-            var bodyParts = room.buildBody([CARRY, CARRY, MOVE], room.energyAvailable);
-            const body = [CARRY, CARRY, MOVE]; // Adjust body composition as needed
+            // The queue holds the body for up to 300 ticks, so size it for the room's capacity.
+            // Only when there are no suppliers at all do we shrink it to what we can afford right now,
+            // so the room can bootstrap itself instead of waiting for a full-size body.
+            const budget = suppliers.length === 0 ? room.energyAvailable : room.energyCapacityAvailable;
+            const bodyParts = room.buildBody([CARRY, CARRY, MOVE], budget);
             spawnQueue.add(room, 'supplier', bodyParts, { role: 'supplier', room: room.name }, 2);
         }
     },
@@ -204,11 +221,11 @@ function getAdjacentPositions(pos) {
 }
 
 
-function getAverageEnergyUsage(windowSize = 100) {
-    if (!Memory.energyUsageTracker || Memory.energyUsageTracker.history.length === 0) return 0;
+function getAverageEnergyUsage(room, windowSize = 100) {
+    const tracker = room.memory.energyUsage;
+    if (!tracker || tracker.history.length === 0) return 0;
 
-    const history = Memory.energyUsageTracker.history;
-    const slice = history.slice(-windowSize); // Take only last N entries
+    const slice = tracker.history.slice(-windowSize); // Take only last N entries
 
     const total = slice.reduce((a, b) => a + b, 0);
 
@@ -216,13 +233,11 @@ function getAverageEnergyUsage(windowSize = 100) {
 }
 
 
-function trackEnergyConsumption() {
+function trackEnergyConsumption(room) {
     let energyUsedThisTick = 0;
 
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep.my) continue;
+    // Only count creeps working in this room, otherwise every room would add up the whole empire
+    for (const creep of room.find(FIND_MY_CREEPS)) {
 
         let activeWorkParts = creep.getActiveBodyparts(WORK);
         if (activeWorkParts === 0) continue;
@@ -239,10 +254,8 @@ function trackEnergyConsumption() {
         }
     }
 
-    // Track spawn energy usage
-    for (const spawnName in Game.spawns) {
-        const spawn = Game.spawns[spawnName];
-
+    // Track spawn energy usage (this room's spawns only)
+    for (const spawn of room.find(FIND_MY_SPAWNS)) {
         if (spawn.spawning) {
             const spawnEnergyCost = spawn.spawning.energyCapacityNeeded || 0;
             const spawnTime = spawn.spawning.needTime || 1;
@@ -250,12 +263,13 @@ function trackEnergyConsumption() {
         }
     }
 
-    if (Memory.energyUsageTracker) {
-        if (Memory.energyUsageTracker.history.length >= Memory.energyUsageTracker.windowSize) {
-            Memory.energyUsageTracker.history.shift(); // Remove oldest
+    const tracker = room.memory.energyUsage;
+    if (tracker) {
+        if (tracker.history.length >= tracker.windowSize) {
+            tracker.history.shift(); // Remove oldest
         }
-        Memory.energyUsageTracker.history.push(energyUsedThisTick); // Add current tick usage
-        Memory.energyUsageTracker.lastTick = Game.time; // Update last tick
+        tracker.history.push(energyUsedThisTick); // Add current tick usage
+        tracker.lastTick = Game.time; // Update last tick
     }
 
 }
@@ -270,9 +284,9 @@ function logEconomyHealth(roomName) {
     const sources = room.find(FIND_SOURCES);
     const income = sources.length * 10; // Estimate: 10 energy/tick per source
 
-    const shortUsage = getAverageEnergyUsage(50);
-    const midUsage = getAverageEnergyUsage(150);
-    const longUsage = getAverageEnergyUsage(500);
+    const shortUsage = getAverageEnergyUsage(room, 50);
+    const midUsage = getAverageEnergyUsage(room, 150);
+    const longUsage = getAverageEnergyUsage(room, 500);
 
     const shortEfficiency = (shortUsage / income) * 100;
     const midEfficiency = (midUsage / income) * 100;
