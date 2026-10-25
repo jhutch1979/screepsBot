@@ -82,6 +82,7 @@ module.exports = function (Room) {
         // Only try spawning builders if there’s something to build
         const hasSites = this.find(FIND_MY_CONSTRUCTION_SITES).length > 0;
         if (hasSites) {
+            let builderTarget;
             if (this.getBuilderTargetCount){
                 builderTarget = this.getBuilderTargetCount();
             } else {
@@ -101,7 +102,7 @@ module.exports = function (Room) {
         }
 
         let defenderTarget;
-        if (this.getUpgraderTarget) {
+        if (this.getDefenderTarget) {
             defenderTarget = this.getDefenderTarget();
         } else {
             defenderTarget = 0;
@@ -109,12 +110,10 @@ module.exports = function (Room) {
         result = this.spawnCreep('defender', defenderTarget, -1);
         if (result === OK) return;
 
-       
         result = this.spawnScout();
         if (result === OK) return;
 
-        result = this.spawnCreep('waller',1, 3);
-        if (result === OK) return;
+        this.spawnCreep('waller', 1, 3);
     };
 };
 
